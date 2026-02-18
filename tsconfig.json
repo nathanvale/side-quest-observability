@@ -1,23 +1,9 @@
 {
-	"compilerOptions": {
-		"baseUrl": ".",
-		"declaration": true,
-		"declarationMap": true,
-		"outDir": "dist",
-		"rootDir": "./src",
-		"sourceMap": true,
-		"noEmit": false,
-		"allowImportingTsExtensions": false,
-		"module": "ESNext"
-	},
-	"exclude": [
-		"node_modules",
-		"dist",
-		"**/*.test.ts",
-		"**/*.spec.ts",
-		"**/__tests__/**",
-		"__tests__"
-	],
 	"extends": "./tsconfig.base.json",
-	"include": ["src/**/*.ts"]
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"references": [{ "path": "packages/server" }, { "path": "packages/client" }],
+	"include": [],
+	"exclude": ["node_modules"]
 }
