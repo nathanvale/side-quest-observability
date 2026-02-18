@@ -30,7 +30,7 @@
 		"side-quest"
 	],
 	"scripts": {
-		"build": "bun run --filter '*' build",
+		"build": "bun run --cwd packages/client build && bun run --cwd packages/server build",
 		"check": "biome check --write .",
 		"clean": "rimraf packages/*/dist 2>/dev/null || true",
 		"coverage": "bun test --coverage --recursive",

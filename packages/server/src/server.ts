@@ -18,7 +18,7 @@
  *   OPTIONS *                - CORS preflight
  */
 
-import { unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import os from 'node:os'
 import path, { join } from 'node:path'
 import {
@@ -313,13 +313,36 @@ function extractEventFields(
 // ---------------------------------------------------------------------------
 
 /**
- * Absolute path to the built Vue dashboard dist directory.
+ * Resolve the Vue dashboard dist directory, checking multiple candidate paths.
  *
- * Why: Resolved once at module load relative to this source file so the path
- * is stable whether the server runs from source (bun --watch) or from a
- * compiled bundle. `import.meta.dir` is the directory of this file at runtime.
+ * Why: The dashboard assets live at different relative paths depending on
+ * how the server is running:
+ * - Dev (source): `../../client/dist` (sibling package in monorepo)
+ * - npm (library import from dist/index.js): `public` (embedded by postbuild)
+ * - npm (CLI from dist/cli/index.js): `../public` (one level up to dist/)
+ *
+ * Falls back gracefully -- API routes still work if no dashboard is found,
+ * the dashboard just returns 404.
+ *
+ * @returns Absolute path to the dashboard dist directory, or null if not found
  */
-const clientDistDir = join(import.meta.dir, '../../client/dist')
+function resolveClientDistDir(): string | null {
+	const candidates = [
+		join(import.meta.dir, '../../client/dist'),
+		join(import.meta.dir, 'public'),
+		join(import.meta.dir, '../public'),
+	]
+
+	for (const candidate of candidates) {
+		if (existsSync(join(candidate, 'index.html'))) {
+			return candidate
+		}
+	}
+
+	return null
+}
+
+const clientDistDir = resolveClientDistDir()
 
 /**
  * Serve a static file from the built Vue dashboard dist directory.
@@ -338,6 +361,10 @@ const clientDistDir = join(import.meta.dir, '../../client/dist')
  * @returns Response with the file contents or 404
  */
 async function serveStaticFile(pathname: string): Promise<Response> {
+	if (!clientDistDir) {
+		return new Response('Not Found', { status: 404, headers: CORS_HEADERS })
+	}
+
 	const filePath =
 		pathname === '/'
 			? join(clientDistDir, 'index.html')
