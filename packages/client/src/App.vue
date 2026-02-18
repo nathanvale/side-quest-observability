@@ -146,7 +146,7 @@ const serverUrl = config.serverUrl
 				:events-per-minute="eventsPerMinute"
 				:available-event-types="availableEventTypes"
 				:selected-event-type="selectedEventType"
-				@update:selected-event-type="selectedEventType = $event"
+				@update:selected-event-type="(v: string) => selectedEventType = v"
 			/>
 
 			<div

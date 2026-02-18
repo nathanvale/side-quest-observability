@@ -143,6 +143,7 @@ onUnmounted(() => {
 		<Transition name="jump-btn">
 			<button
 				v-if="userScrolledUp"
+				type="button"
 				class="sticky top-3 z-30 mx-auto flex w-fit cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-150"
 				:style="{
 					backgroundColor: 'var(--color-bg-surface)',

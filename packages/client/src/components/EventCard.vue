@@ -342,6 +342,7 @@ const _timestamp = computed(() => formatTimestamp(props.event.timestamp))
 					}"
 				>{{ formattedJson }}</pre>
 				<button
+					type="button"
 					class="absolute right-2 top-2 rounded-[var(--radius-sm)] px-2 py-0.5 text-[var(--font-size-xs)] transition-colors duration-150"
 					:style="{
 						backgroundColor: 'var(--color-gray-700)',
