@@ -1,0 +1,45 @@
+{
+	"name": "@side-quest/observability-server",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./cli": "./dist/cli/index.js",
+		"./package.json": "./package.json"
+	},
+	"bin": {
+		"observability": "./bin/observability.cjs"
+	},
+	"files": [
+		"bin/**",
+		"dist/**",
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md"
+	],
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"engines": {
+		"bun": ">=1.3.7"
+	},
+	"scripts": {
+		"build": "bunup",
+		"postbuild": "bun scripts/copy-client-assets.ts",
+		"prepack": "bun run build && bun scripts/assert-dashboard-assets.ts",
+		"pack:verify": "bun scripts/smoke-pack.ts",
+		"smoke:cli": "bun scripts/smoke-cli.ts",
+		"smoke:release": "bun run build && bun run pack:verify && bun run smoke:cli",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@side-quest/core": "^0.4.0"
+	}
+}
