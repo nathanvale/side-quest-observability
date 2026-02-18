@@ -13,170 +13,174 @@
  *   This indirection means swapping themes only touches Tier 2.
  */
 
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@source '../components';
-@source '../composables';
+@source "../components";
+@source "../composables";
 
 /* Dark-only theme. If theme toggle is added in v1.1, add:
    @custom-variant dark (&:is(.dark *));
    and move semantic tokens into :root / .dark blocks. */
 
 @theme inline {
-  /* ========================================
+	/* ========================================
      TIER 1: PRIMITIVE TOKENS (What)
      Raw design values - DO NOT use in components directly
      ======================================== */
 
-  /* --- Color Primitives: Dark Scale --- */
-  --color-gray-950: #030712;
-  --color-gray-900: #111827;
-  --color-gray-850: #1a2332;
-  --color-gray-800: #1f2937;
-  --color-gray-700: #374151;
-  --color-gray-600: #4b5563;
-  --color-gray-500: #6b7280;
-  --color-gray-400: #9ca3af;
-  --color-gray-300: #d1d5db;
-  --color-gray-200: #e5e7eb;
-  --color-gray-100: #f3f4f6;
+	/* --- Color Primitives: Dark Scale --- */
+	--color-gray-950: #030712;
+	--color-gray-900: #111827;
+	--color-gray-850: #1a2332;
+	--color-gray-800: #1f2937;
+	--color-gray-700: #374151;
+	--color-gray-600: #4b5563;
+	--color-gray-500: #6b7280;
+	--color-gray-400: #9ca3af;
+	--color-gray-300: #d1d5db;
+	--color-gray-200: #e5e7eb;
+	--color-gray-100: #f3f4f6;
 
-  /* --- Color Primitives: LCARS Orange (brand) --- */
-  --color-orange-400: #fb923c;
-  --color-orange-500: #f97316;    /* primary -- LCARS signature orange */
-  --color-orange-600: #ea580c;    /* hover */
-  --color-orange-700: #c2410c;    /* active/pressed */
+	/* --- Color Primitives: LCARS Orange (brand) --- */
+	--color-orange-400: #fb923c;
+	--color-orange-500: #f97316; /* primary -- LCARS signature orange */
+	--color-orange-600: #ea580c; /* hover */
+	--color-orange-700: #c2410c; /* active/pressed */
 
-  /* --- Color Primitives: LCARS Amber --- */
-  --color-amber-400: #fbbf24;
-  --color-amber-500: #f59e0b;
-  --color-amber-600: #d97706;
+	/* --- Color Primitives: LCARS Amber --- */
+	--color-amber-400: #fbbf24;
+	--color-amber-500: #f59e0b;
+	--color-amber-600: #d97706;
 
-  /* --- Color Primitives: LCARS Blue --- */
-  --color-blue-400: #60a5fa;
-  --color-blue-500: #3b82f6;
-  --color-blue-600: #2563eb;
+	/* --- Color Primitives: LCARS Blue --- */
+	--color-blue-400: #60a5fa;
+	--color-blue-500: #3b82f6;
+	--color-blue-600: #2563eb;
 
-  /* --- Color Primitives: LCARS Cyan --- */
-  --color-cyan-400: #22d3ee;
-  --color-cyan-500: #06b6d4;
+	/* --- Color Primitives: LCARS Cyan --- */
+	--color-cyan-400: #22d3ee;
+	--color-cyan-500: #06b6d4;
 
-  /* --- Color Primitives: Status (-400 for dark bg legibility, WCAG AA) --- */
-  --color-green-400: #4ade80;     /* 9.2:1 on gray-950 */
-  --color-red-400: #f87171;       /* 5.8:1 on gray-950 */
-  /* amber-400 (#fbbf24) already defined above -- 11.3:1 on gray-950 */
-  --color-yellow-400: #facc15;    /* alt warning shade */
+	/* --- Color Primitives: Status (-400 for dark bg legibility, WCAG AA) --- */
+	--color-green-400: #4ade80; /* 9.2:1 on gray-950 */
+	--color-red-400: #f87171; /* 5.8:1 on gray-950 */
+	/* amber-400 (#fbbf24) already defined above -- 11.3:1 on gray-950 */
+	--color-yellow-400: #facc15; /* alt warning shade */
 
-  /* --- Color Primitives: Utility --- */
-  --color-white: #ffffff;
-  --color-black: #000000;
+	/* --- Color Primitives: Utility --- */
+	--color-white: #ffffff;
+	--color-black: #000000;
 
-  /* --- Spacing Primitives --- */
-  --space-0: 0;
-  --space-1: 0.25rem;   /* 4px */
-  --space-2: 0.5rem;    /* 8px */
-  --space-3: 0.75rem;   /* 12px */
-  --space-4: 1rem;      /* 16px */
-  --space-5: 1.25rem;   /* 20px */
-  --space-6: 1.5rem;    /* 24px */
-  --space-8: 2rem;      /* 32px */
+	/* --- Spacing Primitives --- */
+	--space-0: 0;
+	--space-1: 0.25rem; /* 4px */
+	--space-2: 0.5rem; /* 8px */
+	--space-3: 0.75rem; /* 12px */
+	--space-4: 1rem; /* 16px */
+	--space-5: 1.25rem; /* 20px */
+	--space-6: 1.5rem; /* 24px */
+	--space-8: 2rem; /* 32px */
 
-  /* --- Border Radius Primitives --- */
-  --radius-none: 0;
-  --radius-sm: 0.25rem;   /* 4px */
-  --radius-md: 0.375rem;  /* 6px */
-  --radius-lg: 0.5rem;    /* 8px */
-  --radius-full: 9999px;
+	/* --- Border Radius Primitives --- */
+	--radius-none: 0;
+	--radius-sm: 0.25rem; /* 4px */
+	--radius-md: 0.375rem; /* 6px */
+	--radius-lg: 0.5rem; /* 8px */
+	--radius-full: 9999px;
 
-  /* --- Typography Primitives --- */
-  --font-size-xs: 0.75rem;    /* 12px */
-  --font-size-sm: 0.875rem;   /* 14px */
-  --font-size-base: 1rem;     /* 16px */
-  --font-size-lg: 1.125rem;   /* 18px */
-  --font-size-xl: 1.25rem;    /* 20px */
-  --font-size-2xl: 1.5rem;    /* 24px */
+	/* --- Typography Primitives --- */
+	--font-size-xs: 0.75rem; /* 12px */
+	--font-size-sm: 0.875rem; /* 14px */
+	--font-size-base: 1rem; /* 16px */
+	--font-size-lg: 1.125rem; /* 18px */
+	--font-size-xl: 1.25rem; /* 20px */
+	--font-size-2xl: 1.5rem; /* 24px */
 
-  /* ========================================
+	/* ========================================
      TIER 2: SEMANTIC TOKENS (Why/Where)
      Purpose-driven tokens - USE these in components
      ======================================== */
 
-  /* --- Brand Colors --- */
-  --color-brand-primary: var(--color-orange-500);
-  --color-brand-primary-hover: var(--color-orange-600);
-  --color-brand-accent: var(--color-amber-500);
-  --color-brand-accent-hover: var(--color-amber-600);
+	/* --- Brand Colors --- */
+	--color-brand-primary: var(--color-orange-500);
+	--color-brand-primary-hover: var(--color-orange-600);
+	--color-brand-accent: var(--color-amber-500);
+	--color-brand-accent-hover: var(--color-amber-600);
 
-  /* --- Text Colors (dark theme) --- */
-  --color-text-primary: var(--color-orange-400);      /* orange on dark -- LCARS signature */
-  --color-text-secondary: var(--color-gray-400);      /* muted gray */
-  --color-text-tertiary: var(--color-gray-500);       /* dimmed */
-  --color-text-inverse: var(--color-gray-950);        /* dark text on light backgrounds */
-  --color-text-brand: var(--color-brand-primary);
-  --color-text-heading: var(--color-amber-400);       /* amber for headings */
+	/* --- Text Colors (dark theme) --- */
+	--color-text-primary: var(
+		--color-orange-400
+	); /* orange on dark -- LCARS signature */
+	--color-text-secondary: var(--color-gray-400); /* muted gray */
+	--color-text-tertiary: var(--color-gray-500); /* dimmed */
+	--color-text-inverse: var(
+		--color-gray-950
+	); /* dark text on light backgrounds */
+	--color-text-brand: var(--color-brand-primary);
+	--color-text-heading: var(--color-amber-400); /* amber for headings */
 
-  /* --- Background Colors (dark theme) --- */
-  --color-bg-app: var(--color-gray-950);              /* deepest black -- page bg */
-  --color-bg-surface: var(--color-gray-900);          /* slightly lighter -- panels */
-  --color-bg-card: var(--color-gray-850);             /* card/event row bg */
-  --color-bg-hover: var(--color-gray-800);            /* hover state */
-  --color-bg-active: var(--color-gray-700);           /* active/pressed */
-  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+	/* --- Background Colors (dark theme) --- */
+	--color-bg-app: var(--color-gray-950); /* deepest black -- page bg */
+	--color-bg-surface: var(--color-gray-900); /* slightly lighter -- panels */
+	--color-bg-card: var(--color-gray-850); /* card/event row bg */
+	--color-bg-hover: var(--color-gray-800); /* hover state */
+	--color-bg-active: var(--color-gray-700); /* active/pressed */
+	--color-bg-overlay: rgba(0, 0, 0, 0.6);
 
-  /* --- Status Colors (-400 not -500 on dark backgrounds) --- */
-  --color-status-success: var(--color-green-400);
-  --color-status-error: var(--color-red-400);
-  --color-status-warning: var(--color-amber-400);
-  --color-status-info: var(--color-blue-400);
+	/* --- Status Colors (-400 not -500 on dark backgrounds) --- */
+	--color-status-success: var(--color-green-400);
+	--color-status-error: var(--color-red-400);
+	--color-status-warning: var(--color-amber-400);
+	--color-status-info: var(--color-blue-400);
 
-  /* --- Border Colors (dark theme) --- */
-  --color-border-default: var(--color-gray-800);      /* subtle on dark */
-  --color-border-subtle: var(--color-gray-850);       /* barely visible */
-  --color-border-strong: var(--color-gray-700);       /* emphasized */
-  --color-border-brand: var(--color-brand-primary);   /* orange accent borders */
+	/* --- Border Colors (dark theme) --- */
+	--color-border-default: var(--color-gray-800); /* subtle on dark */
+	--color-border-subtle: var(--color-gray-850); /* barely visible */
+	--color-border-strong: var(--color-gray-700); /* emphasized */
+	--color-border-brand: var(--color-brand-primary); /* orange accent borders */
 
-  /* --- Component: Event Cards --- */
-  --color-card-bg: var(--color-bg-card);
-  --color-card-border: var(--color-border-default);
-  --color-card-hover: var(--color-bg-hover);
-  --space-card-padding: var(--space-4);
-  --space-card-gap: var(--space-2);
-  --radius-card: var(--radius-md);
+	/* --- Component: Event Cards --- */
+	--color-card-bg: var(--color-bg-card);
+	--color-card-border: var(--color-border-default);
+	--color-card-hover: var(--color-bg-hover);
+	--space-card-padding: var(--space-4);
+	--space-card-gap: var(--space-2);
+	--radius-card: var(--radius-md);
 
-  /* --- Component: Session Header --- */
-  --color-header-bg: var(--color-bg-surface);
-  --color-header-border: var(--color-border-brand);
+	/* --- Component: Session Header --- */
+	--color-header-bg: var(--color-bg-surface);
+	--color-header-border: var(--color-border-brand);
 
-  /* --- Component: Filter Select --- */
-  --color-filter-bg: var(--color-gray-800);
-  --color-filter-border: var(--color-gray-700);
-  --color-filter-text: var(--color-text-primary);
+	/* --- Component: Filter Select --- */
+	--color-filter-bg: var(--color-gray-800);
+	--color-filter-border: var(--color-gray-700);
+	--color-filter-text: var(--color-text-primary);
 
-  /* --- Component: Badges (event type pills) --- */
-  --color-badge-bg: rgba(249, 115, 22, 0.15);        /* orange-500 at 15% */
-  --color-badge-text: var(--color-orange-400);
-  --color-badge-border: rgba(249, 115, 22, 0.3);     /* orange-500 at 30% */
-  --radius-badge: var(--radius-full);
+	/* --- Component: Badges (event type pills) --- */
+	--color-badge-bg: rgba(249, 115, 22, 0.15); /* orange-500 at 15% */
+	--color-badge-text: var(--color-orange-400);
+	--color-badge-border: rgba(249, 115, 22, 0.3); /* orange-500 at 30% */
+	--radius-badge: var(--radius-full);
 
-  /* --- Component: Connection Indicator --- */
-  --color-connected: var(--color-green-400);
-  --color-disconnected: var(--color-red-400);
+	/* --- Component: Connection Indicator --- */
+	--color-connected: var(--color-green-400);
+	--color-disconnected: var(--color-red-400);
 
-  /* --- Focus Ring (keyboard navigation) --- */
-  --color-focus-ring: var(--color-blue-400);
+	/* --- Focus Ring (keyboard navigation) --- */
+	--color-focus-ring: var(--color-blue-400);
 
-  /* --- Component: JSON Expand Panel --- */
-  --color-json-bg: var(--color-gray-900);
-  --color-json-border: var(--color-gray-800);
-  --color-json-text: var(--color-gray-300);
+	/* --- Component: JSON Expand Panel --- */
+	--color-json-bg: var(--color-gray-900);
+	--color-json-border: var(--color-gray-800);
+	--color-json-text: var(--color-gray-300);
 
-  /* --- Event Type Colors (left border accents) --- */
-  --color-event-session: var(--color-blue-400);
-  --color-event-tool: var(--color-orange-500);
-  --color-event-error: var(--color-red-400);
-  --color-event-notification: var(--color-amber-400);
-  --color-event-user: var(--color-cyan-400);
-  --color-event-system: var(--color-gray-500);
+	/* --- Event Type Colors (left border accents) --- */
+	--color-event-session: var(--color-blue-400);
+	--color-event-tool: var(--color-orange-500);
+	--color-event-error: var(--color-red-400);
+	--color-event-notification: var(--color-amber-400);
+	--color-event-user: var(--color-cyan-400);
+	--color-event-system: var(--color-gray-500);
 }
 
 /* ========================================
@@ -186,41 +190,42 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+	box-sizing: border-box;
 }
 
 html,
 body,
 #app {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+	height: 100%;
+	margin: 0;
+	padding: 0;
 }
 
 body {
-  background-color: var(--color-bg-app);
-  color: var(--color-text-secondary);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+	background-color: var(--color-bg-app);
+	color: var(--color-text-secondary);
+	font-family:
+		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+		Roboto, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* Smooth scrollbar for dark theme */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+	width: 6px;
+	height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-app);
+	background: var(--color-bg-app);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-gray-700);
-  border-radius: var(--radius-full);
+	background: var(--color-gray-700);
+	border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-600);
+	background: var(--color-gray-600);
 }

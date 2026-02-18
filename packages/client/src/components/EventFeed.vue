@@ -15,8 +15,8 @@
  * - Accessibility: role="log" + aria-live for screen reader announcements
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import EventCard from './EventCard.vue'
 import type { EventEnvelope } from '../types'
+import EventCard from './EventCard.vue'
 
 const props = defineProps<{
 	/**

@@ -48,7 +48,6 @@
 		"quality-check:ci": "biome check . && bun run typecheck",
 		"release": "changeset publish --provenance",
 		"security:audit": "npm audit",
-		"setup": "bun scripts/setup.ts",
 		"setup:protect": "bun scripts/setup-protect.ts",
 		"test": "bun test --recursive",
 		"test:ci": "TF_BUILD=true bun test --recursive",

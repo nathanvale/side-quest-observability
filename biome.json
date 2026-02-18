@@ -47,6 +47,11 @@
 			"trailingCommas": "none"
 		}
 	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
 	"overrides": [
 		{
 			"includes": ["**/config/generator.ts"],
