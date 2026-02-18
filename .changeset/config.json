@@ -1,6 +1,6 @@
 {
 	"$schema": "https://unpkg.com/@changesets/config/schema.json",
-	"access": "restricted",
+	"access": "public",
 	"baseBranch": "main",
 	"changelog": [
 		"@changesets/changelog-github",
