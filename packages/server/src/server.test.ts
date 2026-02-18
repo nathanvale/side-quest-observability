@@ -13,7 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { Server } from 'bun'
@@ -42,6 +42,15 @@ function cleanupGlobalPidFiles(): void {
 			// Ignore -- file may not exist
 		}
 	}
+}
+
+async function waitForCondition(check: () => boolean, timeoutMs = 5000): Promise<boolean> {
+	const deadline = Date.now() + timeoutMs
+	while (Date.now() < deadline) {
+		if (check()) return true
+		await Bun.sleep(25)
+	}
+	return check()
 }
 
 /** Reusable test context. */
@@ -173,6 +182,23 @@ describe('EventStore', () => {
 		}
 		expect(store.size).toBe(3)
 	})
+
+	test('rotates JSONL persistence file when size exceeds 10MB', () => {
+		const tempDir = mkdtempSync(path.join(os.tmpdir(), 'obs-store-rotation-'))
+		const persistPath = path.join(tempDir, 'events.jsonl')
+		try {
+			const store = new EventStore({ capacity: 10, persistPath })
+			const hugePayload = { blob: 'x'.repeat(11 * 1024 * 1024) }
+
+			// First push creates a >10MB file; second push triggers rotation.
+			store.push(makeEvent('worktree.created', hugePayload))
+			store.push(makeEvent('worktree.created', { rotated: true }))
+
+			expect(existsSync(`${persistPath}.1`)).toBe(true)
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true })
+		}
+	})
 })
 
 // =============================================
@@ -284,6 +310,62 @@ describe('Event Server HTTP', () => {
 		})
 
 		expect(res.status).toBe(400)
+	})
+
+	test('POST /events validates full envelope id field', async () => {
+		const validEnvelope = makeEvent('worktree.created', { branch: 'main' })
+		const invalidEnvelope = {
+			...validEnvelope,
+			id: 42,
+		}
+
+		const res = await fetch(`http://localhost:${server.port}/events`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(invalidEnvelope),
+		})
+
+		expect(res.status).toBe(400)
+		const body = await res.json()
+		expect(body.error).toContain('"id"')
+	})
+
+	test('POST /events validates full envelope timestamp field', async () => {
+		const validEnvelope = makeEvent('worktree.created', { branch: 'main' })
+		const invalidEnvelope = {
+			...validEnvelope,
+			timestamp: 'definitely-not-a-date',
+		}
+
+		const res = await fetch(`http://localhost:${server.port}/events`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(invalidEnvelope),
+		})
+
+		expect(res.status).toBe(400)
+		const body = await res.json()
+		expect(body.error).toContain('"timestamp"')
+	})
+
+	test('POST /events rejects oversized chunked payloads without Content-Length', async () => {
+		const encoder = new TextEncoder()
+		const chunkedBody = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(encoder.encode('{"type":"worktree.created","data":{"blob":"'))
+				controller.enqueue(encoder.encode('x'.repeat(1024 * 1024 + 128)))
+				controller.enqueue(encoder.encode('"}}'))
+				controller.close()
+			},
+		})
+
+		const res = await fetch(`http://localhost:${server.port}/events`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: chunkedBody,
+		})
+
+		expect(res.status).toBe(413)
 	})
 
 	test('GET /events returns stored events', async () => {
@@ -490,6 +572,63 @@ describe('Event Server CORS', () => {
 		})
 		expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
 	})
+
+	test('GET / dashboard response has CORS headers', async () => {
+		const res = await fetch(`http://localhost:${server.port}/`)
+		expect(res.status).toBe(200)
+		expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+	})
+})
+
+// =============================================
+// Lifecycle operational tests
+// =============================================
+
+describe('Event Server Lifecycle', () => {
+	const pidFile = path.join(GLOBAL_CACHE_DIR, 'events.pid')
+	const portFile = path.join(GLOBAL_CACHE_DIR, 'events.port')
+	const nonceFile = path.join(GLOBAL_CACHE_DIR, 'events.nonce')
+
+	beforeEach(() => {
+		cleanupGlobalPidFiles()
+	})
+
+	afterEach(() => {
+		cleanupGlobalPidFiles()
+	})
+
+	test('SIGTERM cleanup removes global discovery files', async () => {
+		const cliEntry = path.join(import.meta.dir, 'cli', 'index.ts')
+		const child = Bun.spawn(['bun', 'run', cliEntry, 'server', '--port', '0'], {
+			cwd: process.cwd(),
+			stdout: 'ignore',
+			stderr: 'ignore',
+		})
+
+		try {
+			const started = await waitForCondition(
+				() => existsSync(pidFile) && existsSync(portFile) && existsSync(nonceFile),
+				5000,
+			)
+			expect(started).toBe(true)
+
+			child.kill('SIGTERM')
+			await child.exited
+
+			const cleaned = await waitForCondition(
+				() => !existsSync(pidFile) && !existsSync(portFile) && !existsSync(nonceFile),
+				5000,
+			)
+			expect(cleaned).toBe(true)
+		} finally {
+			try {
+				child.kill('SIGKILL')
+			} catch {
+				// Process may already be exited.
+			}
+			await child.exited
+		}
+	})
 })
 
 // =============================================
@@ -498,12 +637,14 @@ describe('Event Server CORS', () => {
 
 describe('Event Server Hook Enrichment (POST /events/:eventName)', () => {
 	let server: Server
+	let hookAppName: string
 
 	beforeEach(() => {
 		cleanupGlobalPidFiles()
+		hookAppName = `test-hook-${Date.now()}`
 		server = startServer({
 			port: 0,
-			appName: `test-hook-${Date.now()}`,
+			appName: hookAppName,
 			appRoot: `/tmp/test-hook-${Date.now()}`,
 		})
 	})
@@ -541,6 +682,7 @@ describe('Event Server Hook Enrichment (POST /events/:eventName)', () => {
 		expect(events).toHaveLength(1)
 		expect(events[0].type).toBe('hook.session_start')
 		expect(events[0].source).toBe('hook')
+		expect(events[0].app).toBe(hookAppName)
 
 		const data = events[0].data as Record<string, unknown>
 		expect(data.hookEvent).toBe('session_start')

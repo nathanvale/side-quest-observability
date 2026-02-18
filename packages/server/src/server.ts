@@ -62,6 +62,9 @@ const CORS_HEADERS = {
 	'Access-Control-Allow-Headers': 'Content-Type',
 } as const
 
+/** Maximum accepted HTTP request body size (1MB). */
+const MAX_BODY_BYTES = 1024 * 1024
+
 // ---------------------------------------------------------------------------
 // Event name -> EventType mapping for hook ingress
 // ---------------------------------------------------------------------------
@@ -394,7 +397,7 @@ async function serveStaticFile(
 			? 'no-cache'
 			: 'public, max-age=31536000, immutable'
 		return new Response(file, {
-			headers: { 'Cache-Control': cacheControl },
+			headers: { ...CORS_HEADERS, 'Cache-Control': cacheControl },
 		})
 	}
 
@@ -402,7 +405,7 @@ async function serveStaticFile(
 	const indexFile = Bun.file(join(clientDistDir, 'index.html'))
 	if (await indexFile.exists()) {
 		return new Response(indexFile, {
-			headers: { 'Cache-Control': 'no-cache' },
+			headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' },
 		})
 	}
 
@@ -413,6 +416,136 @@ async function serveStaticFile(
 // ---------------------------------------------------------------------------
 // Request handlers
 // ---------------------------------------------------------------------------
+
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.trim().length > 0
+}
+
+function isValidTimestamp(value: string): boolean {
+	return !Number.isNaN(Date.parse(value))
+}
+
+async function parseJsonObjectBody(
+	req: Request,
+): Promise<
+	| { ok: true; body: Record<string, unknown> }
+	| { ok: false; response: Response }
+> {
+	// Fast-path guard when Content-Length is available.
+	const contentLength = req.headers.get('content-length')
+	if (
+		contentLength &&
+		Number.isFinite(Number.parseInt(contentLength, 10)) &&
+		Number.parseInt(contentLength, 10) > MAX_BODY_BYTES
+	) {
+		return {
+			ok: false,
+			response: Response.json(
+				{ error: 'Request body too large (max 1MB)' },
+				{ status: 413, headers: CORS_HEADERS },
+			),
+		}
+	}
+
+	let rawBytes: ArrayBuffer
+	try {
+		rawBytes = await req.arrayBuffer()
+	} catch {
+		return {
+			ok: false,
+			response: Response.json(
+				{ error: 'Invalid JSON body' },
+				{ status: 400, headers: CORS_HEADERS },
+			),
+		}
+	}
+
+	// Enforces the same limit for chunked requests with no Content-Length.
+	if (rawBytes.byteLength > MAX_BODY_BYTES) {
+		return {
+			ok: false,
+			response: Response.json(
+				{ error: 'Request body too large (max 1MB)' },
+				{ status: 413, headers: CORS_HEADERS },
+			),
+		}
+	}
+
+	let parsed: unknown
+	try {
+		parsed = JSON.parse(new TextDecoder().decode(rawBytes))
+	} catch {
+		return {
+			ok: false,
+			response: Response.json(
+				{ error: 'Invalid JSON body' },
+				{ status: 400, headers: CORS_HEADERS },
+			),
+		}
+	}
+
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		return {
+			ok: false,
+			response: Response.json(
+				{ error: 'Body must be a JSON object' },
+				{ status: 400, headers: CORS_HEADERS },
+			),
+		}
+	}
+
+	return {
+		ok: true,
+		body: parsed as Record<string, unknown>,
+	}
+}
+
+function validateFullEnvelope(
+	body: Record<string, unknown>,
+): { ok: true; event: EventEnvelope } | { ok: false; error: string } {
+	if (body.schemaVersion !== '1.0.0') {
+		return { ok: false, error: `Unknown schemaVersion: ${body.schemaVersion}` }
+	}
+	if (!isNonEmptyString(body.id)) {
+		return { ok: false, error: 'Missing or invalid "id" field' }
+	}
+	if (!isNonEmptyString(body.timestamp) || !isValidTimestamp(body.timestamp)) {
+		return { ok: false, error: 'Missing or invalid "timestamp" field' }
+	}
+	if (!isNonEmptyString(body.type)) {
+		return { ok: false, error: 'Missing or invalid "type" field' }
+	}
+	if (!isNonEmptyString(body.app)) {
+		return { ok: false, error: 'Missing or invalid "app" field' }
+	}
+	if (!isNonEmptyString(body.appRoot)) {
+		return { ok: false, error: 'Missing or invalid "appRoot" field' }
+	}
+	if (body.source !== 'cli' && body.source !== 'hook') {
+		return { ok: false, error: 'Missing or invalid "source" field' }
+	}
+	if (!isNonEmptyString(body.correlationId)) {
+		return { ok: false, error: 'Missing or invalid "correlationId" field' }
+	}
+	if (!('data' in body)) {
+		return { ok: false, error: 'Missing "data" field' }
+	}
+
+	return {
+		ok: true,
+		event: {
+			schemaVersion: '1.0.0',
+			id: body.id,
+			timestamp: body.timestamp,
+			type: body.type as EventType,
+			app: body.app,
+			appRoot: body.appRoot,
+			source: body.source,
+			correlationId: body.correlationId,
+			data: body.data,
+		},
+	}
+}
 
 /**
  * Handle POST /events/:eventName -- raw hook stdin ingress.
@@ -440,39 +573,21 @@ async function handleHookEvent(
 	eventName: string,
 	store: EventStore,
 	bunServer: Server<WsClientData>,
+	defaultApp: string,
 	defaultAppRoot: string,
 	queue?: PlaybackQueue | null,
 	voiceConfig?: VoiceSystemConfig,
 ): Promise<Response> {
-	// Enforce 1MB body limit
-	const contentLength = req.headers.get('content-length')
-	if (contentLength && Number.parseInt(contentLength, 10) > 1024 * 1024) {
-		return Response.json(
-			{ error: 'Request body too large (max 1MB)' },
-			{ status: 413, headers: CORS_HEADERS },
-		)
+	const parsedBody = await parseJsonObjectBody(req)
+	if (!parsedBody.ok) {
+		return parsedBody.response
 	}
 
-	let raw: Record<string, unknown>
-	try {
-		const body = await req.json()
-		if (!body || typeof body !== 'object' || Array.isArray(body)) {
-			return Response.json(
-				{ error: 'Body must be a JSON object' },
-				{ status: 400, headers: CORS_HEADERS },
-			)
-		}
-		raw = body as Record<string, unknown>
-	} catch {
-		return Response.json(
-			{ error: 'Invalid JSON body' },
-			{ status: 400, headers: CORS_HEADERS },
-		)
-	}
+	const raw = parsedBody.body
 
 	// Stop recursion guard -- Claude Code sets this when a stop hook fires
 	// a nested hook invocation, which would loop infinitely.
-	if (raw.stop_hook_active === true) {
+	if (eventName === 'stop' && raw.stop_hook_active === true) {
 		return Response.json(
 			{ status: 'skipped', reason: 'stop_hook_active' },
 			{ status: 200, headers: CORS_HEADERS },
@@ -481,10 +596,7 @@ async function handleHookEvent(
 
 	const eventType = mapEventName(eventName)
 	const appRoot = typeof raw.cwd === 'string' ? raw.cwd : defaultAppRoot
-	const appName =
-		typeof raw.hook_event_name === 'string'
-			? raw.hook_event_name
-			: 'observability'
+	const appName = isNonEmptyString(raw.app) ? raw.app : defaultApp
 
 	const envelope = createEvent(eventType, extractEventFields(eventName, raw), {
 		app: appName,
@@ -537,31 +649,12 @@ async function handlePostEnvelope(
 	defaultApp: string,
 	defaultAppRoot: string,
 ): Promise<Response> {
-	// Enforce 1MB body limit
-	const contentLength = req.headers.get('content-length')
-	if (contentLength && Number.parseInt(contentLength, 10) > 1024 * 1024) {
-		return Response.json(
-			{ error: 'Request body too large (max 1MB)' },
-			{ status: 413, headers: CORS_HEADERS },
-		)
+	const parsedBody = await parseJsonObjectBody(req)
+	if (!parsedBody.ok) {
+		return parsedBody.response
 	}
 
-	let body: Record<string, unknown>
-	try {
-		const parsed = await req.json()
-		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			return Response.json(
-				{ error: 'Body must be a JSON object' },
-				{ status: 400, headers: CORS_HEADERS },
-			)
-		}
-		body = parsed as Record<string, unknown>
-	} catch {
-		return Response.json(
-			{ error: 'Invalid JSON body' },
-			{ status: 400, headers: CORS_HEADERS },
-		)
-	}
+	const body = parsedBody.body
 
 	// Validate required fields
 	if (typeof body.type !== 'string') {
@@ -579,25 +672,27 @@ async function handlePostEnvelope(
 
 	let event: EventEnvelope
 
-	if (body.schemaVersion) {
-		// Full envelope -- validate schemaVersion and store directly
-		if (body.schemaVersion !== '1.0.0') {
+	if (body.schemaVersion !== undefined) {
+		const validated = validateFullEnvelope(body)
+		if (!validated.ok) {
 			return Response.json(
-				{ error: `Unknown schemaVersion: ${body.schemaVersion}` },
+				{ error: validated.error },
 				{ status: 400, headers: CORS_HEADERS },
 			)
 		}
-		event = body as unknown as EventEnvelope
+		event = validated.event
 	} else {
 		// Partial payload -- wrap in a full envelope
 		event = createEvent(
 			body.type as EventType,
 			(body.data as Record<string, unknown>) ?? {},
 			{
-				app: (body.app as string) ?? defaultApp,
-				appRoot: (body.appRoot as string) ?? defaultAppRoot,
-				source: (body.source as 'cli' | 'hook') ?? 'cli',
-				correlationId: body.correlationId as string | undefined,
+				app: isNonEmptyString(body.app) ? body.app : defaultApp,
+				appRoot: isNonEmptyString(body.appRoot) ? body.appRoot : defaultAppRoot,
+				source: body.source === 'hook' ? 'hook' : 'cli',
+				correlationId: isNonEmptyString(body.correlationId)
+					? body.correlationId
+					: undefined,
 			},
 		)
 	}
@@ -829,6 +924,7 @@ export function startServer(options: ServerOptions): Server<WsClientData> {
 						eventName,
 						store,
 						bunServer,
+						appName,
 						appRoot,
 						playbackQueue,
 						voiceConfig,
