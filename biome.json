@@ -54,6 +54,17 @@
 	},
 	"overrides": [
 		{
+			"includes": ["**/*.vue"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedImports": "off",
+						"noUnusedVariables": "off"
+					}
+				}
+			}
+		},
+		{
 			"includes": ["**/config/generator.ts"],
 			"linter": {
 				"rules": {

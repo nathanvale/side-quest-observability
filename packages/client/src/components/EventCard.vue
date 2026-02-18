@@ -27,7 +27,7 @@ const props = defineProps<{
 
 const isExpanded = ref(false)
 
-function toggleExpand(): void {
+function _toggleExpand(): void {
 	isExpanded.value = !isExpanded.value
 }
 
@@ -67,7 +67,7 @@ function getEventColor(type: EventType): string {
 // Error event detection (community pattern #4: critical row highlighting)
 // -------------------------------------------------------------------------
 
-const isErrorEvent = computed(
+const _isErrorEvent = computed(
 	() =>
 		props.event.type.includes('failure') ||
 		props.event.type === 'safety.blocked',
@@ -134,12 +134,12 @@ const toolName = computed(() => {
 	return typeof d.toolName === 'string' ? d.toolName : null
 })
 
-const agentType = computed(() => {
+const _agentType = computed(() => {
 	const d = hookData.value
 	return typeof d.agentType === 'string' ? d.agentType : null
 })
 
-const sessionId = computed(() => {
+const _sessionId = computed(() => {
 	const d = hookData.value
 	if (typeof d.sessionId === 'string') {
 		return d.sessionId.slice(0, 8)
@@ -153,7 +153,7 @@ const sessionId = computed(() => {
  * Why: Bash commands and file paths are the most useful quick-glance
  * details. Showing them inline avoids needing to expand every card.
  */
-const toolDetail = computed((): string | null => {
+const _toolDetail = computed((): string | null => {
 	const d = hookData.value
 	if (!toolName.value) return null
 
@@ -179,7 +179,7 @@ const toolDetail = computed((): string | null => {
 // Formatted JSON for expand panel
 // -------------------------------------------------------------------------
 
-const formattedJson = computed(() => {
+const _formattedJson = computed(() => {
 	try {
 		return JSON.stringify(props.event.data, null, 2)
 	} catch {
@@ -193,7 +193,7 @@ const formattedJson = computed(() => {
 
 const copySuccess = ref(false)
 
-async function copyJson(e: MouseEvent): Promise<void> {
+async function _copyJson(e: MouseEvent): Promise<void> {
 	e.stopPropagation()
 	try {
 		await navigator.clipboard.writeText(JSON.stringify(props.event, null, 2))
@@ -206,9 +206,9 @@ async function copyJson(e: MouseEvent): Promise<void> {
 	}
 }
 
-const borderColor = computed(() => getEventColor(props.event.type))
-const typeLabel = computed(() => formatEventType(props.event.type))
-const timestamp = computed(() => formatTimestamp(props.event.timestamp))
+const _borderColor = computed(() => getEventColor(props.event.type))
+const _typeLabel = computed(() => formatEventType(props.event.type))
+const _timestamp = computed(() => formatTimestamp(props.event.timestamp))
 </script>
 
 <template>
