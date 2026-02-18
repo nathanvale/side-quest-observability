@@ -36,7 +36,7 @@ const props = defineProps<{
 	selectedEventType: string
 }>()
 
-const _emit = defineEmits<{
+const emit = defineEmits<{
 	/** Emitted when the user changes the event type filter. */
 	'update:selectedEventType': [type: string]
 }>()
@@ -88,7 +88,7 @@ function truncateSessionId(id: string | null): string | null {
  * @param type - Raw event type string
  * @returns Display label
  */
-function _formatEventTypeLabel(type: string): string {
+function formatEventTypeLabel(type: string): string {
 	const parts = type.split('.')
 	const label = parts[parts.length - 1] ?? type
 	return label
@@ -97,8 +97,8 @@ function _formatEventTypeLabel(type: string): string {
 		.join('')
 }
 
-const _shortSessionId = computed(() => truncateSessionId(props.sessionId))
-const _shortModel = computed(() => formatModel(props.model))
+const shortSessionId = computed(() => truncateSessionId(props.sessionId))
+const shortModel = computed(() => formatModel(props.model))
 </script>
 
 <template>

@@ -13,7 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { unlinkSync } from 'node:fs'
+import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { Server } from 'bun'
@@ -181,21 +181,29 @@ describe('EventStore', () => {
 
 describe('Event Server HTTP', () => {
 	let server: Server
+	let dashboardDir: string
 
 	beforeEach(() => {
 		// Ensure no stale PID files from previous tests
 		cleanupGlobalPidFiles()
+		dashboardDir = mkdtempSync(path.join(os.tmpdir(), 'obs-dashboard-'))
+		writeFileSync(
+			path.join(dashboardDir, 'index.html'),
+			'<!doctype html><html><body>dashboard</body></html>',
+		)
 		server = startServer({
 			port: 0,
 			appName: `test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 			appRoot: `/tmp/test-http-${Date.now()}`,
 			capacity: 100,
+			dashboardDistDir: dashboardDir,
 		})
 	})
 
 	afterEach(() => {
 		server.stop(true)
 		cleanupGlobalPidFiles()
+		rmSync(dashboardDir, { recursive: true, force: true })
 	})
 
 	test('binds to localhost by default', () => {
@@ -361,12 +369,9 @@ describe('Event Server HTTP', () => {
 	})
 
 	test('serves SPA fallback (index.html) for unknown routes when dist exists', async () => {
-		// With static file serving, unknown routes return the SPA index.html (200)
-		// rather than 404. The SPA router handles client-side routing.
-		// If dist/ is missing, the server falls through to 404.
 		const res = await fetch(`http://localhost:${server.port}/unknown`)
-		// Accept either 200 (SPA fallback when dist/ exists) or 404 (no dist/)
-		expect([200, 404]).toContain(res.status)
+		expect(res.status).toBe(200)
+		expect(await res.text()).toContain('dashboard')
 	})
 })
 

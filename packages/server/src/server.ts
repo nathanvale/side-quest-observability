@@ -100,6 +100,8 @@ export interface ServerOptions {
 	readonly capacity?: number
 	/** Path for JSONL persistence file. */
 	readonly persistPath?: string
+	/** Optional absolute path to dashboard dist (primarily for tests). */
+	readonly dashboardDistDir?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +127,10 @@ interface WsClientData {
  * @returns true if the process exists
  */
 function isProcessRunning(pid: number): boolean {
+	if (!Number.isInteger(pid) || pid <= 0) {
+		return false
+	}
+
 	try {
 		process.kill(pid, 0)
 		return true
@@ -193,6 +199,14 @@ export function readEventServerPort(): number | null {
 	try {
 		const pid = Number.parseInt(readTextFileSync(pidFile), 10)
 		const port = Number.parseInt(readTextFileSync(portFile), 10)
+		const validPid = Number.isInteger(pid) && pid > 0
+		const validPort = Number.isInteger(port) && port >= 1 && port <= 65_535
+
+		// Invalid cache values are treated as stale discovery files.
+		if (!validPid || !validPort) {
+			removePidFiles()
+			return null
+		}
 
 		if (!isProcessRunning(pid)) {
 			removePidFiles()
@@ -313,25 +327,24 @@ function extractEventFields(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the Vue dashboard dist directory, checking multiple candidate paths.
+ * Resolve the Vue dashboard dist directory, checking candidate paths in order.
  *
  * Why: The dashboard assets live at different relative paths depending on
  * how the server is running:
  * - Dev (source): `../../client/dist` (sibling package in monorepo)
- * - npm (library import from dist/index.js): `public` (embedded by postbuild)
- * - npm (CLI from dist/cli/index.js): `../public` (one level up to dist/)
+ * - npm (built server bundle): `public` (embedded by postbuild)
  *
  * Falls back gracefully -- API routes still work if no dashboard is found,
  * the dashboard just returns 404.
  *
  * @returns Absolute path to the dashboard dist directory, or null if not found
  */
-function resolveClientDistDir(): string | null {
+function resolveClientDistDir(preferredDir?: string): string | null {
 	const candidates = [
+		preferredDir,
 		join(import.meta.dir, '../../client/dist'),
 		join(import.meta.dir, 'public'),
-		join(import.meta.dir, '../public'),
-	]
+	].filter((candidate): candidate is string => typeof candidate === 'string')
 
 	for (const candidate of candidates) {
 		if (existsSync(join(candidate, 'index.html'))) {
@@ -341,8 +354,6 @@ function resolveClientDistDir(): string | null {
 
 	return null
 }
-
-const clientDistDir = resolveClientDistDir()
 
 /**
  * Serve a static file from the built Vue dashboard dist directory.
@@ -358,9 +369,15 @@ const clientDistDir = resolveClientDistDir()
  * - all other assets: immutable (Vite hashes filenames -- safe to cache forever)
  *
  * @param pathname - URL pathname from the incoming request
+ * @param preferredDashboardDir - Optional dashboard dist path override
  * @returns Response with the file contents or 404
  */
-async function serveStaticFile(pathname: string): Promise<Response> {
+async function serveStaticFile(
+	pathname: string,
+	preferredDashboardDir?: string,
+): Promise<Response> {
+	const clientDistDir = resolveClientDistDir(preferredDashboardDir)
+
 	if (!clientDistDir) {
 		return new Response('Not Found', { status: 404, headers: CORS_HEADERS })
 	}
@@ -730,6 +747,7 @@ export function startServer(options: ServerOptions): Server<WsClientData> {
 		hostname = '127.0.0.1',
 		capacity,
 		persistPath,
+		dashboardDistDir,
 	} = options
 
 	const store = new EventStore({ capacity, persistPath })
@@ -882,7 +900,7 @@ export function startServer(options: ServerOptions): Server<WsClientData> {
 			// Bun.file() auto-detects Content-Type from the file extension, so no
 			// manual MIME map is needed. Missing dist/ degrades gracefully -- API
 			// routes above still work, only the dashboard returns 404.
-			return serveStaticFile(url.pathname)
+			return serveStaticFile(url.pathname, dashboardDistDir)
 		},
 
 		websocket: {

@@ -15,6 +15,7 @@
  * - Accessibility: role="log" + aria-live for screen reader announcements
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import EventCard from './EventCard.vue'
 import type { EventEnvelope } from '../types'
 
 const props = defineProps<{
@@ -59,14 +60,14 @@ function scrollToBottom(): void {
 }
 
 /** Re-engage auto-scroll (called by "Jump to latest" button). */
-function _jumpToLatest(): void {
+function jumpToLatest(): void {
 	userScrolledUp.value = false
 	isAtBottom.value = true
 	nextTick(() => scrollToBottom())
 }
 
 /** Handle user scroll events to detect manual scroll-up. */
-function _handleScroll(): void {
+function handleScroll(): void {
 	const atBottom = checkAtBottom()
 	if (!atBottom) {
 		userScrolledUp.value = true
@@ -112,7 +113,7 @@ watch(
  * Why: At high event rates, overlapping CSS enter animations on 500 DOM nodes
  * cause layout thrashing. Disabling them keeps the feed smooth.
  */
-const _animationsEnabled = computed(() => {
+const animationsEnabled = computed(() => {
 	// > 5 events/sec = > 300/min
 	return props.eventsPerMinute <= 300
 })
@@ -161,6 +162,12 @@ onUnmounted(() => {
 			class="flex h-full min-h-64 flex-col items-center justify-center gap-2"
 		>
 			<p
+				class="text-base font-semibold"
+				:style="{ color: 'var(--color-text-primary)' }"
+			>
+				Observability Dashboard is live
+			</p>
+			<p
 				class="text-sm"
 				:style="{ color: 'var(--color-text-tertiary)' }"
 			>
@@ -170,7 +177,7 @@ onUnmounted(() => {
 				class="text-xs"
 				:style="{ color: 'var(--color-text-tertiary)' }"
 			>
-				Connect the event server and start a Claude Code session.
+				Start a Claude Code session and run a command to populate the feed.
 			</p>
 		</div>
 

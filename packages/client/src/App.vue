@@ -22,14 +22,18 @@
  *       -> filteredEvents recomputed
  */
 import { computed, ref } from 'vue'
+import EventFeed from './components/EventFeed.vue'
+import SessionHeader from './components/SessionHeader.vue'
 import { useEventStream } from './composables/useEventStream'
+import { config } from './config'
 import type { HookEventData } from './types'
 
 // -------------------------------------------------------------------------
 // Event stream
 // -------------------------------------------------------------------------
 
-const { events, isConnected, eventsPerMinute } = useEventStream()
+const { events, isConnected, error, connectionAttempts, eventsPerMinute } =
+	useEventStream()
 
 // -------------------------------------------------------------------------
 // Filter state
@@ -48,7 +52,7 @@ const selectedEventType = ref('')
  * Why: The session ID is the primary identity for the current Claude session.
  * We scan from the end of the buffer to find the most recent one.
  */
-const _sessionId = computed(() => {
+const sessionId = computed(() => {
 	const evts = events.value
 	for (let i = evts.length - 1; i >= 0; i--) {
 		const e = evts[i]!
@@ -61,14 +65,14 @@ const _sessionId = computed(() => {
 })
 
 /** Application name from the most recent event. */
-const _appName = computed(() => {
+const appName = computed(() => {
 	const evts = events.value
 	if (evts.length === 0) return null
 	return evts[evts.length - 1]?.app ?? null
 })
 
 /** Model from the most recent session_start event. */
-const _model = computed(() => {
+const model = computed(() => {
 	const evts = events.value
 	for (let i = evts.length - 1; i >= 0; i--) {
 		const e = evts[i]!
@@ -91,7 +95,7 @@ const _model = computed(() => {
  * Computed from events so it updates as new event types arrive.
  * Sorted for stable dropdown order.
  */
-const _availableEventTypes = computed(() => {
+const availableEventTypes = computed(() => {
 	const types = new Set<string>()
 	for (const e of events.value) {
 		types.add(String(e.type))
@@ -110,11 +114,13 @@ const _availableEventTypes = computed(() => {
  * local to App.vue. A composable would add an abstraction layer for
  * 2 lines of logic. The event buffer itself always holds ALL events.
  */
-const _filteredEvents = computed(() => {
+const filteredEvents = computed(() => {
 	if (!selectedEventType.value) return events.value
 	const filter = selectedEventType.value
 	return events.value.filter((e) => String(e.type) === filter)
 })
+
+const serverUrl = config.serverUrl
 </script>
 
 <template>
@@ -142,6 +148,30 @@ const _filteredEvents = computed(() => {
 				:selected-event-type="selectedEventType"
 				@update:selected-event-type="selectedEventType = $event"
 			/>
+
+			<div
+				class="px-4 py-2 text-xs"
+				:style="{
+					backgroundColor: 'color-mix(in srgb, var(--color-bg-surface) 70%, transparent)',
+					borderBottom: '1px solid var(--color-border-subtle)',
+					color: 'var(--color-text-tertiary)',
+				}"
+			>
+				<div>Live event dashboard for Claude Code hooks and Side Quest tooling.</div>
+				<div>
+					Server target:
+					<span
+						class="font-mono"
+						:style="{ color: 'var(--color-text-secondary)' }"
+					>{{ serverUrl }}</span>
+				</div>
+				<div
+					v-if="error"
+					:style="{ color: 'var(--color-status-warning)' }"
+				>
+					Reconnecting (attempt {{ connectionAttempts }}): {{ error }}
+				</div>
+			</div>
 
 			<EventFeed
 				:events="filteredEvents"

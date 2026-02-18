@@ -13,9 +13,10 @@
 		"./package.json": "./package.json"
 	},
 	"bin": {
-		"observability": "./dist/cli/index.js"
+		"observability": "./bin/observability.cjs"
 	},
 	"files": [
+		"bin/**",
 		"dist/**",
 		"README.md",
 		"LICENSE",
@@ -31,6 +32,7 @@
 	"scripts": {
 		"build": "bunup",
 		"postbuild": "bun scripts/copy-client-assets.ts",
+		"prepack": "bun run build && bun scripts/assert-dashboard-assets.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test"
 	},
