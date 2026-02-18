@@ -33,6 +33,9 @@
 		"build": "bunup",
 		"postbuild": "bun scripts/copy-client-assets.ts",
 		"prepack": "bun run build && bun scripts/assert-dashboard-assets.ts",
+		"pack:verify": "bun scripts/smoke-pack.ts",
+		"smoke:cli": "bun scripts/smoke-cli.ts",
+		"smoke:release": "bun run build && bun run pack:verify && bun run smoke:cli",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test"
 	},
